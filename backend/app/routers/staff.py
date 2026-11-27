@@ -64,7 +64,7 @@ def get_rag_collection():
 )
 def list_patients(
     db: Session = Depends(get_db), _session: AuthSession = Depends(require_staff)
-) -> list[Patient]:
+) -> list[PatientView]:
     return list(db.scalars(select(Patient).order_by(Patient.name, Patient.id)).all())
 
 
@@ -119,7 +119,9 @@ def create_staff_appointment(
             walk_in_mobile=payload.walk_in_mobile,
             red_flag_checker=red_flag_checker,
         )
-    except (EntityNotFound, InvalidActor) as error:
+    except EntityNotFound as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except InvalidActor as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     return safe_booking_response(result)
 

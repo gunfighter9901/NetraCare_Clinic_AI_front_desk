@@ -79,14 +79,17 @@ def available_slots(
     db: Session = Depends(get_db),
     _session: AuthSession = Depends(require_any_role),
 ) -> SlotAvailabilityView:
-    availability = find_slots(
-        db,
-        doctor_id,
-        appointment_date,
-        visit_type,
-        clock,
-        speciality,
-    )
+    try:
+        availability = find_slots(
+            db,
+            doctor_id,
+            appointment_date,
+            visit_type,
+            clock,
+            speciality,
+        )
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
     return SlotAvailabilityView(
         doctor_id=availability.doctor_id,
         date=availability.date,
@@ -116,15 +119,20 @@ def create_appointment(
         date=payload.date,
         start_time=payload.start_time,
     )
-    result = safe_book_appointment(
-        db,
-        candidate,
-        role=session.role,
-        actor_patient_id=session.patient_id,
-        clock=clock,
-        reason=payload.reason,
-        red_flag_checker=red_flag_checker,
-    )
+    try:
+        result = safe_book_appointment(
+            db,
+            candidate,
+            role=session.role,
+            actor_patient_id=session.patient_id,
+            clock=clock,
+            reason=payload.reason,
+            red_flag_checker=red_flag_checker,
+        )
+    except EntityNotFound as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except InvalidActor as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
     return safe_booking_response(result)
 
 

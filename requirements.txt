@@ -1,7 +1,7 @@
 # NetraCare — pinned working set (verified 2026-11-27, Python 3.11+, .venv)
 # Single reliable install: pip install -r ../requirements.txt  (run from backend/)
 # Or: pip install -r requirements.txt (run from repo root with pip 23+)
-# Frontend is Node/npm based — see frontend/package.json, not covered here.
+# Headless backend only — UI removed pending rebuild, no Node tooling in-tree.
 fastapi==0.165.0
 uvicorn[standard]==0.54.0
 sqlalchemy==2.1.9

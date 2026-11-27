@@ -1,194 +1,271 @@
-import { useEffect, useState } from 'react'
-import { api, ApiError } from '../api'
-import { useAuth } from '../auth'
-import type { Appointment, DoctorSummary, PatientHistoryItem } from '../types'
+import { useState } from 'react'
+import { api } from '../api/client'
+import type { Appointment, DoctorSummary, PatientHistoryItem } from '../api/client'
+import { useAsync, errorMessage } from '../hooks/useAsync'
+import { useSession } from '../context/SessionContext'
+import {
+  ConfirmDialog,
+  EmptyState,
+  InlineAlert,
+  LoadingState,
+  StatusBadge,
+  appointmentTone,
+  formatDateTime,
+} from '../components/ui'
 
-function defaultScheduleDate(): string {
-  const date = new Date()
-  date.setDate(date.getDate() + 1)
-  if (date.getDay() === 0) date.setDate(date.getDate() + 1)
-  return date.toISOString().slice(0, 10)
-}
-
-function displayTime(value: string): string {
-  return value.slice(0, 5)
+function todayString(): string {
+  return new Date().toISOString().slice(0, 10)
 }
 
 export default function DoctorWorkspace() {
-  const { session } = useAuth()
-  const [scheduleDate, setScheduleDate] = useState(defaultScheduleDate)
-  const [appointments, setAppointments] = useState<Appointment[]>([])
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [busy, setBusy] = useState(false)
-  const [doctorNote, setDoctorNote] = useState('')
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [summary, setSummary] = useState<DoctorSummary | null>(null)
-  const [history, setHistory] = useState<PatientHistoryItem[]>([])
-  const [summaryLoading, setSummaryLoading] = useState(false)
+  const { session } = useSession()
   const token = session?.token ?? ''
+  const [date, setDate] = useState(todayString())
+  const [cycle, setCycle] = useState(0)
+  const refresh = () => setCycle((n) => n + 1)
 
-  useEffect(() => {
-    if (!scheduleDate) return
-    let ignore = false
-    setLoading(true)
-    api
-      .doctorAppointments(token, scheduleDate)
-      .then((appointmentList) => {
-        if (!ignore) setAppointments(appointmentList)
-      })
-      .catch((caught) => {
-        if (!ignore) setError(caught instanceof ApiError ? caught.message : 'Could not load your schedule.')
-      })
-      .finally(() => {
-        if (!ignore) setLoading(false)
-      })
-    return () => {
-      ignore = true
-    }
-  }, [token, scheduleDate])
+  const scheduleQuery = useAsync((signal) => api.doctorAppointments(token, date, signal), [token, date, cycle])
 
-  async function refreshSchedule() {
-    const appointmentList = await api.doctorAppointments(token, scheduleDate)
-    setAppointments(appointmentList)
-  }
+  const [completing, setCompleting] = useState<Appointment | null>(null)
+  const [note, setNote] = useState('')
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
-  async function complete(appointment: Appointment) {
-    setError(null)
-    setSuccess(null)
-    setBusy(true)
-    try {
-      const completed = await api.completeAppointment(token, appointment.id, doctorNote.trim())
-      setDoctorNote('')
-      setSuccess(`Completed visit ${completed.id}.`)
-      await refreshSchedule()
-    } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Completion failed. Please try again.')
-    } finally {
-      setBusy(false)
-    }
-  }
+  const [selectedPatient, setSelectedPatient] = useState<{ id: string; name: string } | null>(null)
 
-  async function openPatient(appointment: Appointment) {
-    setSelectedId(appointment.id)
-    setSummary(null)
-    setHistory([])
-    setSummaryLoading(true)
+  async function complete() {
+    if (!completing || !note.trim()) return
+    setPending(true)
     setError(null)
     try {
-      const [summaryResponse, historyResponse] = await Promise.all([
-        api.appointmentSummary(token, appointment.id),
-        api.patientHistory(token, appointment.patient_id),
-      ])
-      setSummary(summaryResponse)
-      setHistory(historyResponse)
-    } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Could not load summary.')
+      await api.completeAppointment(token, completing.id, note.trim())
+      setNotice(`Visit for ${completing.patient_name} marked completed.`)
+      setCompleting(null)
+      setNote('')
+      refresh()
+    } catch (err) {
+      setError(errorMessage(err))
     } finally {
-      setSummaryLoading(false)
+      setPending(false)
     }
   }
 
   return (
-    <section className="workspace">
-      <h2>Your schedule</h2>
-      {error && <p className="error" role="alert">{error}</p>}
-      {success && <p className="success" role="status">{success}</p>}
-
-      <div className="card filter-card">
-        <label>
-          Date
-          <input
-            type="date"
-            value={scheduleDate}
-            onChange={(event) => setScheduleDate(event.target.value)}
-          />
-        </label>
-        <label>
-          Doctor note for completion (required)
-          <textarea
-            value={doctorNote}
-            onChange={(event) => setDoctorNote(event.target.value)}
-            placeholder="Short note, e.g. VA 6/9, review 6 months"
-          />
-        </label>
+    <div className="container">
+      <div className="page-header">
+        <div>
+          <h1>Your schedule</h1>
+          <p>Today&apos;s visits, intake notes, and AI summaries.</p>
+        </div>
       </div>
-
-      <div className="table-card">
-        <h3>{scheduleDate}</h3>
-        {loading ? (
-          <p>Loading your schedule…</p>
-        ) : appointments.length === 0 ? (
-          <p>No appointments on this date.</p>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Time</th>
-                <th>Patient</th>
-                <th>Reason</th>
-                <th>Speciality</th>
-                <th>Visit</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {appointments.map((appointment) => (
-                <tr key={appointment.id} data-appointment-id={appointment.id}>
-                  <td>
-                    {displayTime(appointment.start_time)}–{displayTime(appointment.end_time)}
-                  </td>
-                  <td>{appointment.patient_name}</td>
-                  <td>{appointment.reason ?? ''} {appointment.is_urgent ? <strong>Urgent</strong> : null}</td>
-                  <td>{appointment.speciality}</td>
-                  <td>{appointment.visit_type === 'new' ? 'New' : 'Follow-up'}</td>
-                  <td>{appointment.status}</td>
-                  <td>
-                    <button type="button" onClick={() => void openPatient(appointment)} disabled={busy}>
-                      Open patient
+      <div className="workspace">
+        <section className="card" aria-label="Day schedule">
+          <h2>Day schedule</h2>
+          <div className="form-group" style={{ maxWidth: 260 }}>
+            <label htmlFor="doctor-date">Date</label>
+            <input id="doctor-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
+          {notice && (
+            <div style={{ marginBottom: 12 }}>
+              <InlineAlert tone="success">{notice}</InlineAlert>
+            </div>
+          )}
+          {error && (
+            <div style={{ marginBottom: 12 }}>
+              <InlineAlert tone="error">{error}</InlineAlert>
+            </div>
+          )}
+          {scheduleQuery.state.status === 'loading' && <LoadingState label="Loading schedule" />}
+          {scheduleQuery.state.status === 'error' && <InlineAlert tone="error">{scheduleQuery.state.message}</InlineAlert>}
+          {scheduleQuery.state.status === 'empty' && <EmptyState>No appointments on this date.</EmptyState>}
+          {scheduleQuery.state.status === 'success' && (
+            <div className="row-list">
+              {scheduleQuery.state.data.map((a) => (
+                <div key={a.id} className="entity-row">
+                  <div className="entity-row-head">
+                    <strong>
+                      {a.start_time.slice(0, 5)}–{a.end_time.slice(0, 5)} · {a.patient_name}
+                    </strong>
+                    <span style={{ display: 'flex', gap: 6 }}>
+                      <StatusBadge tone={appointmentTone(a.status)}>{a.status}</StatusBadge>
+                      {a.is_urgent && <StatusBadge tone="danger">urgent</StatusBadge>}
+                    </span>
+                  </div>
+                  <span className="meta">
+                    {a.speciality} · {a.visit_type === 'new' ? 'New' : 'Follow-up'}
+                  </span>
+                  {a.reason && <p style={{ fontSize: '0.92rem' }}>Reason: {a.reason}</p>}
+                  <span className="entity-row-actions">
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setSelectedPatient({ id: a.patient_id, name: a.patient_name })}
+                    >
+                      Patient file
                     </button>
-                    {appointment.status === 'booked' && (
-                      <button type="button" onClick={() => void complete(appointment)} disabled={busy || !doctorNote.trim()}>
-                        Complete
+                    {a.status === 'booked' && (
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        onClick={() => {
+                          setCompleting(a)
+                          setNote('')
+                          setError(null)
+                        }}
+                      >
+                        Complete visit
                       </button>
                     )}
-                  </td>
-                </tr>
+                  </span>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          )}
+        </section>
+
+        {selectedPatient && (
+          <PatientFileCard
+            key={selectedPatient.id}
+            token={token}
+            patient={selectedPatient}
+            onClose={() => setSelectedPatient(null)}
+          />
         )}
       </div>
 
-      {selectedId && (
-        <div className="card summary-card">
-          <h3>Patient summary</h3>
-          {summaryLoading ? (
-            <p>Loading summary…</p>
-          ) : summary ? (
+      {completing && (
+        <ConfirmDialog
+          title={`Complete visit — ${completing.patient_name}`}
+          body={
             <>
-              <p><em>{summary.label}</em></p>
-              <p>{summary.summary}</p>
-              {history.length > 0 && (
-                <>
-                  <h4>Past notes</h4>
-                  {history.map((item) => (
-                    <div key={item.id}>
-                      <p><strong>{item.date} · {item.doctor_name} ({item.speciality})</strong></p>
-                      <p>Reason: {item.reason ?? ''}</p>
-                      <p>Note: {item.doctor_note ?? ''}</p>
-                    </div>
-                  ))}
-                </>
-              )}
+              <p className="meta" style={{ marginBottom: 12 }}>
+                {formatDateTime(completing.date, completing.start_time)} · {completing.speciality}. A short note is
+                required and will be saved with the visit.
+              </p>
+              <div className="form-group">
+                <label htmlFor="complete-note">Doctor note</label>
+                <textarea
+                  id="complete-note"
+                  rows={4}
+                  maxLength={2000}
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Findings, advice given, follow-up plan…"
+                />
+                <span className={`char-count${note.length >= 1900 ? ' over' : ''}`}>{note.length}/2000</span>
+              </div>
             </>
-          ) : (
-            <p>Select Open patient to load the summary.</p>
-          )}
+          }
+          confirmLabel="Mark completed"
+          pending={pending}
+          onConfirm={() => void complete()}
+          onClose={() => {
+            if (!pending) {
+              setCompleting(null)
+              setNote('')
+            }
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function PatientFileCard({
+  token,
+  patient,
+  onClose,
+}: {
+  token: string
+  patient: { id: string; name: string }
+  onClose: () => void
+}) {
+  const { session } = useSession()
+  const historyQuery = useAsync((signal) => api.patientHistory(token, patient.id, signal), [token, patient.id])
+  const [summaryFor, setSummaryFor] = useState<string | null>(null)
+
+  const history: PatientHistoryItem[] =
+    historyQuery.state.status === 'success' ? historyQuery.state.data : []
+
+  return (
+    <section className="card" aria-label={`Patient file for ${patient.name}`}>
+      <div className="entity-row-head" style={{ marginBottom: 12 }}>
+        <h2 style={{ margin: 0 }}>{patient.name} — completed visits</h2>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>
+          Close
+        </button>
+      </div>
+      {historyQuery.state.status === 'loading' && <LoadingState label="Loading history" />}
+      {historyQuery.state.status === 'error' && <InlineAlert tone="error">{historyQuery.state.message}</InlineAlert>}
+      {historyQuery.state.status === 'empty' && <EmptyState>No completed visits on record.</EmptyState>}
+      {historyQuery.state.status === 'success' && (
+        <div className="row-list">
+          {history.map((item) => (
+            <div key={item.id} className="entity-row">
+              <div className="entity-row-head">
+                <strong>
+                  {item.date} · {item.doctor_name}
+                </strong>
+                <StatusBadge tone="neutral">{item.speciality}</StatusBadge>
+              </div>
+              {item.reason && (
+                <p style={{ fontSize: '0.92rem' }}>
+                  <span className="meta">Reason: </span>
+                  {item.reason}
+                </p>
+              )}
+              {item.doctor_note && (
+                <p style={{ fontSize: '0.92rem' }}>
+                  <span className="meta">Note: </span>
+                  {item.doctor_note}
+                </p>
+              )}
+              <span className="entity-row-actions">
+                {/* Summaries are scoped to the signed-in doctor's own visits —
+                    the API refuses other doctors' appointments by design. */}
+                {item.doctor_id === session?.doctorId ? (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setSummaryFor(summaryFor === item.id ? null : item.id)}
+                  >
+                    {summaryFor === item.id ? 'Hide AI summary' : 'AI summary'}
+                  </button>
+                ) : (
+                  <span className="meta">Summary available to {item.doctor_name}</span>
+                )}
+              </span>
+              {summaryFor === item.id && <SummaryBlock key={item.id} token={token} appointmentId={item.id} />}
+            </div>
+          ))}
         </div>
       )}
     </section>
+  )
+}
+
+function SummaryBlock({ token, appointmentId }: { token: string; appointmentId: string }) {
+  const summaryQuery = useAsync((signal) => api.appointmentSummary(token, appointmentId, signal), [token, appointmentId])
+
+  if (summaryQuery.state.status === 'loading') return <LoadingState label="Generating summary" />
+  if (summaryQuery.state.status === 'error')
+    return <InlineAlert tone="error">Summary unavailable. See the notes above.</InlineAlert>
+  if (summaryQuery.state.status !== 'success') return null
+  const summary: DoctorSummary = summaryQuery.state.data
+  return (
+    <div className="alert alert-info" role="status">
+      <span>
+        <strong>{summary.label}</strong>
+        <br />
+        {summary.summary}
+        {summary.fallback && (
+          <>
+            <br />
+            <span className="meta">Fallback summary — AI unavailable.</span>
+          </>
+        )}
+      </span>
+    </div>
   )
 }

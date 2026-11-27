@@ -445,10 +445,15 @@ def reschedule_appointment(
             )
         if original.status is not AppointmentStatus.BOOKED:
             return RescheduleResult.refusal(
-                RuleDecision.refuse(ReasonCode.NOT_ACTIVE, "Only a booked appointment can be cancelled"),
+                RuleDecision.refuse(ReasonCode.NOT_ACTIVE, "Only a booked appointment can be rescheduled"),
                 original=original,
             )
         now = clock.now()
+        if datetime.combine(original.date, original.start_time) < now:
+            return RescheduleResult.refusal(
+                RuleDecision.refuse(ReasonCode.NOT_ACTIVE, "Only a booked appointment can be rescheduled"),
+                original=original,
+            )
         target_decision = _evaluate_reschedule_target(
             db, original, target_doctor_id, target_date, target_start_time, now
         )

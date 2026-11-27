@@ -6,6 +6,7 @@ from app.db import get_db
 from app.dependencies import require_any_role
 from app.models import AuthSession, Doctor
 from app.schemas import DoctorView
+from app.services.scheduling import opd_days_for_doctor
 
 router = APIRouter(prefix="/doctors", tags=["clinic"])
 
@@ -24,7 +25,8 @@ def list_doctors(
         DoctorView(
             id=doctor.id,
             name=doctor.name,
-            specialities=[item.speciality for item in doctor.specialities],
+            specialities=sorted([item.speciality for item in doctor.specialities]),
+            opd_days=opd_days_for_doctor(db, doctor.id),
         )
         for doctor in doctors
     ]

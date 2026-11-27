@@ -6,12 +6,14 @@ from app.schemas import AppointmentView
 
 
 def appointment_view(appointment: Appointment, approval=None) -> AppointmentView:
+    patient_name = appointment.patient.name if getattr(appointment, "patient", None) else appointment.patient_id
+    doctor_name = appointment.doctor.name if getattr(appointment, "doctor", None) else appointment.doctor_id
     return AppointmentView(
         id=appointment.id,
         patient_id=appointment.patient_id,
-        patient_name=appointment.patient.name,
+        patient_name=patient_name,
         doctor_id=appointment.doctor_id,
-        doctor_name=appointment.doctor.name,
+        doctor_name=doctor_name,
         speciality=appointment.speciality,
         visit_type=appointment.visit_type,
         date=appointment.date,
@@ -30,7 +32,7 @@ def appointment_view(appointment: Appointment, approval=None) -> AppointmentView
     )
 
 
-def approval_view(request) -> dict:
+def approval_view(request) -> StaffApprovalRequestView:
     from app.schemas import StaffApprovalRequestView
 
     target_doctor_name = request.target_doctor.name if getattr(request, "target_doctor", None) else None

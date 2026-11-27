@@ -134,6 +134,29 @@ class StaffApprovalRequestView(BaseModel):
     decided_by: str | None = None
 
 
+class AppointmentView(BaseModel):
+    id: str
+    patient_id: str
+    patient_name: str
+    doctor_id: str
+    doctor_name: str
+    speciality: str
+    visit_type: VisitType
+    date: dt.date
+    start_time: time
+    end_time: time
+    status: AppointmentStatus
+    created_at: datetime
+    cancelled_at: datetime | None = None
+    completed_at: datetime | None = None
+    reason: str | None = None
+    is_urgent: bool = False
+    urgent_case_id: str | None = None
+    approval_request_id: str | None = None
+    approval_action: ApprovalAction | None = None
+    approval_status: ApprovalStatus | None = None
+
+
 class ToStaffResponse(BaseModel):
     result: str = "to_staff"
     reason_code: str = "INSIDE_2_HOURS"
@@ -181,29 +204,6 @@ class PatientHistoryItem(BaseModel):
     reason: str | None = None
     doctor_note: str | None = None
     status: AppointmentStatus
-
-
-class AppointmentView(BaseModel):
-    id: str
-    patient_id: str
-    patient_name: str
-    doctor_id: str
-    doctor_name: str
-    speciality: str
-    visit_type: VisitType
-    date: dt.date
-    start_time: time
-    end_time: time
-    status: AppointmentStatus
-    created_at: datetime
-    cancelled_at: datetime | None = None
-    completed_at: datetime | None = None
-    reason: str | None = None
-    is_urgent: bool = False
-    urgent_case_id: str | None = None
-    approval_request_id: str | None = None
-    approval_action: ApprovalAction | None = None
-    approval_status: ApprovalStatus | None = None
 
 
 class SlotAvailabilityView(BaseModel):

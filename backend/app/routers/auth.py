@@ -40,7 +40,7 @@ def auth_response(session: AuthSession) -> AuthResponse:
     summary="List doctors for login",
     description="Public doctor IDs and names used by the Doctor login picker.",
 )
-def doctor_options(db: Session = Depends(get_db)) -> list[Doctor]:
+def doctor_options(db: Session = Depends(get_db)) -> list[DoctorOption]:
     return list(db.scalars(select(Doctor).order_by(Doctor.id)).all())
 
 

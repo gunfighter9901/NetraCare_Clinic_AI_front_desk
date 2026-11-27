@@ -48,6 +48,8 @@ def find_slots(
     if doctor is None:
         raise LookupError("Doctor not found")
     if speciality is None:
+        if not doctor.specialities:
+            raise LookupError("Doctor not found")
         speciality = doctor.specialities[0].speciality
 
     doctor_appointments = list(
@@ -175,7 +177,9 @@ def search_availability(
     days = (end - start).days + 1
     for single in (start + timedelta(days=i) for i in range(days)):
         for doctor in doctors:
-            spec = speciality or doctor.specialities[0].speciality
+            spec = speciality or (doctor.specialities[0].speciality if doctor.specialities else None)
+            if spec is None:
+                continue
             try:
                 avail = find_slots(db, doctor.id, single, visit_type, clock, spec)
             except LookupError:

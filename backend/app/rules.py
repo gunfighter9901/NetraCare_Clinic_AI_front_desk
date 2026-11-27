@@ -175,7 +175,9 @@ def evaluate_booking(
         return schedule_decision
 
     if any(
-        item.status is AppointmentStatus.BOOKED and item.speciality == candidate.speciality
+        item.status is AppointmentStatus.BOOKED
+        and item.speciality == candidate.speciality
+        and datetime.combine(item.date, item.start_time) >= now
         for item in patient_appointments
     ):
         return RuleDecision.refuse(
@@ -221,6 +223,10 @@ def evaluate_cancellation(
             ReasonCode.NOT_ACTIVE, "Only a booked appointment can be cancelled"
         )
     starts_at = datetime.combine(appointment.date, appointment.start_time)
+    if starts_at < now:
+        return RuleDecision.refuse(
+            ReasonCode.NOT_ACTIVE, "Only a booked appointment can be cancelled"
+        )
     if actor_role is Role.PATIENT and starts_at - now < timedelta(hours=2):
         return RuleDecision.refuse(ReasonCode.INSIDE_2_HOURS, "Please contact Staff")
     return RuleDecision.allow()

@@ -1,34 +1,33 @@
-# React + TypeScript + Vite
+# NetraCare frontend
 
-Iteration 4 Patient chat uses thread IDs with `{thread_id, message}` or `{thread_id, confirm}`, renders one Confirm/No card per pending mutation, and refreshes appointments after answers. Staff workspace includes an independent approval queue (`GET /staff/approvals`, approve/reject) plus latest request status on Patient rows. Late Patient website actions return HTTP 202 `to_staff` and remain booked.
+Minimalist-light React + TypeScript app for the NetraCare AI front desk.
+Built per `../FRONTEND_BLUEPRINT.md` (layout/behavior contracts preserved,
+skin swapped). The backend is the authority for identity, data, and rules.
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+## Run
 
-Currently, two official plugins are available:
+```bash
+# terminal 1 — backend
+cd ../backend && source .venv/bin/activate && uvicorn app.main:app --reload
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `tsrs` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+# terminal 2 — frontend
+npm install
+npm run dev        # http://localhost:5173, /api/* proxied to :8000
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Production build against a deployed API:
+
+```bash
+VITE_API_BASE_URL=https://api.example.com npm run build
+```
+
+No live LLM or Weaviate keys are needed for development: chat answers and
+retrieval work out of the box, and `NETRACARE_STUB_SAFETY=1` on the backend
+bypasses the red-flag LLM call for rule testing.
+
+## Checks
+
+```bash
+npm run lint     # tsc --noEmit
+npm run build    # typecheck + production bundle
+```
