@@ -108,7 +108,7 @@ npm install
 npm run dev
 ```
 
-- Frontend: http://localhost:5173. <-- open link
+- Frontend: http://localhost:5173. <--
 - Backend API: http://127.0.0.1:8000 (docs at `/docs`)
 
 Logins: Patient `9000000001 / Asha Verma`, Doctor `D1`, Staff `Front Desk`. AI chat needs `GOOGLE_API_KEY` + `WEAVIATE_URL`/`WEAVIATE_API_KEY` in `backend/.env` then `python build_index.py` once — without keys the app still runs, chat answers fall back.
