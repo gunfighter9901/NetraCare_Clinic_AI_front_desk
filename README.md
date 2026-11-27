@@ -2,11 +2,21 @@
 
 > NetraCare cuts front-desk load by answering repeat patient questions, routing each patient to the right specialist, and handling bookings/reschedules/cancels without breaking any clinic rule.
 
-> Status: full-stack — FastAPI backend + React frontend in `frontend/`.
+> Status: full-stack — FastAPI backend + React frontend.
 
 ## Abstract
 
 NetraCare is a fictional eye-clinic front desk (all data synthetic, no real patients). The backend is the authority for identity, data access, and clinic rules: a deterministic scheduling engine blocks invalid bookings, Gemini safety chains catch red-flag symptoms and create urgent cases, Weaviate RAG answers policy questions with citations, and a LangGraph booking agent searches real free slots and books only after explicit confirmation — late changes go to a Staff approval queue instead of breaking the 2-hour rule.
+
+## Tech Stack
+
+| Layer | Technology |
+| ----- | ---------- |
+| **Backend** | Python 3.11+, FastAPI, Uvicorn, SQLAlchemy, Pydantic / pydantic-settings, LangChain + LangGraph, `langchain-google-genai` (Gemini safety + summaries) |
+| **Frontend** | React 18, TypeScript 5, Vite 5, lucide-react, Vite dev proxy (`/api` → FastAPI) |
+| **Database** | SQLite (`netracare.db`, via SQLAlchemy ORM, seeded from synthetic CSV packs) + Weaviate Cloud (vector index for RAG policy answers with citations) |
+| **Test / Tooling** | pytest, httpx, python-dotenv |
+
 
 ## Architecture — user perspective
 
