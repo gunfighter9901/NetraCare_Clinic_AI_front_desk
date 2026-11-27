@@ -84,7 +84,7 @@ Needs: Python 3.11+, Node 18+.
 ./dev.sh
 ```
 
-First run installs deps, creates `.venv`/`.env`, seeds `netracare.db`, and `npm install`s. Every run starts both.
+First run installs deps, copies `backend/.env.example` → `backend/.env` (if missing), seeds `netracare.db`, and `npm install`s. Every run starts both.
 
 # OR
 
@@ -96,6 +96,7 @@ cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r ../requirements.txt
+[ -f .env ] || cp .env.example .env
 python -m app.loader
 uvicorn app.main:app --reload
 ```
@@ -107,7 +108,7 @@ npm install
 npm run dev
 ```
 
-- Frontend: http://localhost:5173
+- Frontend: http://localhost:5173. <-- open link
 - Backend API: http://127.0.0.1:8000 (docs at `/docs`)
 
 Logins: Patient `9000000001 / Asha Verma`, Doctor `D1`, Staff `Front Desk`. AI chat needs `GOOGLE_API_KEY` + `WEAVIATE_URL`/`WEAVIATE_API_KEY` in `backend/.env` then `python build_index.py` once — without keys the app still runs, chat answers fall back.
