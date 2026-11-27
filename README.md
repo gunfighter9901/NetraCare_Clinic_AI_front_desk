@@ -72,35 +72,45 @@ NetraCare/
 │   ├── netracare.db           # SQLite DB (generated)
 │   └── .env                   # keys, local only, never committed
 └── Project_Resources/data-pack-Iteration_0*/  # synthetic CSVs + 3 clinic docs (RAG source)
+├── frontend/                            # React app (`npm run dev` → :5173, `/api` → :8000)
+├── dev.sh                               # one-command run: backend + frontend
 ```
-
-UI rebuild starts from an empty tree — no web app paths remain.
 
 ## Run the app
 
-Needs: Python 3.11+.
+Needs: Python 3.11+, Node 18+.
 
-**Setup — once:**
 ```bash
+./dev.sh
+```
+
+First run installs deps, creates `.venv`/`.env`, seeds `netracare.db`, and `npm install`s. Every run starts both.
+
+# OR
+
+**Manual run — backend + frontend separately:**
+
+```bash
+# terminal 1 — backend
 cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r ../requirements.txt
 python -m app.loader
-```
-
-**Start server — every time:**
-```bash
-cd backend
-source .venv/bin/activate
 uvicorn app.main:app --reload
 ```
 
-Open the API:
+```bash
+# terminal 2 — frontend
+cd frontend
+npm install
+npm run dev
+```
 
+- Frontend: http://localhost:5173
 - Backend API: http://127.0.0.1:8000 (docs at `/docs`)
 
-Logins: Patient `9000001 / Asha Verma`, Doctor `D1`, Staff `Front Desk`. AI chat needs `GOOGLE_API_KEY` + `WEAVIATE_URL`/`WEAVIATE_API_KEY` in `backend/.env` then `python build_index.py` once — without keys the app still runs, chat answers fall back.
+Logins: Patient `9000000001 / Asha Verma`, Doctor `D1`, Staff `Front Desk`. AI chat needs `GOOGLE_API_KEY` + `WEAVIATE_URL`/`WEAVIATE_API_KEY` in `backend/.env` then `python build_index.py` once — without keys the app still runs, chat answers fall back.
 
 ## Optional — Verify
 
